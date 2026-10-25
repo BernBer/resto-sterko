@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resto STERKO</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #34495e;
+            --bar-color: #9b59b6;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+        body { background-color: #f8f9fa; color: #333; height: 100vh; display: flex; flex-direction: column; }
+
+        /* Navigation Header */
+        header { background-color: var(--primary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .nav-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tab-btn { background: rgba(255,255,255,0.1); border: none; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 13px; }
+        .tab-btn:hover, .tab-btn.active { background: var(--accent); }
+        .account-controls { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+
+        /* Main View Container */
+        .view-container { flex: 1; padding: 15px; overflow-y: auto; display: none; }
+        .view-container.active { display: block; }
+
+        /* General Layouts */
+        .grid-2col { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; height: calc(100vh - 100px); }
+        .card { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; flex-direction: column; }
+
+        /* Controls & Buttons */
+        button.btn { background: var(--accent); color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button.btn:hover { opacity: 0.9; }
+        button.btn-success { background: var(--success); }
+        button.btn-danger { background: var(--danger); }
+        button.btn-warning { background: var(--warning); color: #333; }
+        button.btn-bar { background: var(--bar-color); color: white; }
+
+        /* Floorplan / POS */
+        .canvas-wrapper { position: relative; width: 100%; height: 100%; background: #eee; border-radius: 6px; overflow: hidden; }
+        canvas { display: block; cursor: crosshair; }
+        .canvas-wrapper.edit-mode canvas { cursor: grab; touch-action: none; }
+        .canvas-wrapper.edit-mode canvas.is-dragging { cursor: grabbing; }
+        .table-appearance-editor { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; padding: 10px; background: #f4f6f8; border-radius: 6px; }
+        .table-appearance-editor label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: bold; }
+        .table-appearance-editor select { width: auto; min-width: 130px; margin: 0; }
+        .table-appearance-editor input[type="color"] { width: 42px; height: 36px; padding: 3px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+        .pos-menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 15px; }
+        .menu-item-btn { background: var(--light); border: 1px solid #ccc; padding: 12px 5px; border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .menu-item-btn:hover { border-color: var(--accent); background: #e3f2fd; }
+        .menu-item-btn.bar-item { border-left: 4px solid var(--bar-color); }
+        .menu-item-btn.kitchen-item { border-left: 4px solid var(--warning); }
+
+        /* KDS / Kitchen & Bar Display */
+        .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .ticket { background: #fffde7; border: 2px solid #fff59d; border-radius: 6px; padding: 12px; box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+        .ticket.bar-ticket { background: #f3e5f5; border-color: #ce93d8; }
+        .ticket-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px dashed #ccc; padding-bottom: 5px; margin-bottom: 8px; }
+        .ticket-item { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; }
+
+        /* Thermal Receipt & PDF Preview */
+        .receipt-preview { font-family: 'Courier New', Courier, monospace; width: 280px; background: white; padding: 15px; border: 1px solid #ccc; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); font-size: 12px; }
+        .receipt-header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+
+        /* Form & Table Controls */
+        input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; margin-bottom: 10px; }
+        table.data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table.data-table th, table.data-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+        table.data-table th { background-color: var(--light); }
+        #menu-editor { width: min(760px, calc(100% - 32px)); max-height: 90vh; border: 0; border-radius: 8px; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+        #menu-editor::backdrop { background: rgba(20, 30, 40, 0.55); }
+        .menu-editor-header, .menu-editor-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 20px; }
+        .menu-editor-header { border-bottom: 1px solid #ddd; }
+        .menu-editor-footer { border-top: 1px solid #ddd; }
+        .menu-editor-content { padding: 8px 20px 16px; overflow: auto; }
+        .menu-editor-table { width: 100%; border-collapse: collapse; }
+        .menu-editor-table th, .menu-editor-table td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        .menu-editor-table input, .menu-editor-table select { margin: 0; min-width: 0; }
+        .menu-editor-table td:last-child { width: 1%; }
+        #access-dialog, #user-manager { width: min(560px, calc(100% - 32px)); max-height: 90vh; border: 0; border-radius: 8px; padding: 20px; margin: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+        #access-dialog::backdrop, #user-manager::backdrop { background: rgba(20, 30, 40, 0.65); }
+        .access-form { display: grid; gap: 8px; margin-top: 16px; }
+        .access-form label { font-size: 13px; font-weight: bold; }
+        .access-form input, .access-form select { margin: 0; }
+        .access-message { min-height: 20px; margin-top: 10px; color: var(--danger); font-size: 13px; }
+        .user-manager-content { max-height: 60vh; overflow: auto; }
+        .user-manager-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .user-manager-table th, .user-manager-table td { padding: 7px; border-bottom: 1px solid #ddd; text-align: left; font-size: 13px; }
+        .user-manager-table input, .user-manager-table select { margin: 0; min-width: 90px; }
+        .user-create-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+        .user-create-form label { font-size: 13px; font-weight: bold; }
+        .user-create-form input, .user-create-form select { margin: 4px 0 0; }
+        .user-create-form button { align-self: end; }
+        @media (max-width: 600px) {
+            .menu-editor-content { padding: 8px 12px 12px; }
+            .menu-editor-header, .menu-editor-footer { padding: 12px; }
+            .menu-editor-table th, .menu-editor-table td { padding: 6px 4px; }
+            .account-controls { flex-wrap: wrap; justify-content: flex-end; }
+            .user-create-form { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h2>Resto STERKO</h2>
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-view="pos" onclick="switchTab('pos')">1. Kassa & Plattegrond</button>
+            <button class="tab-btn" data-view="kds" onclick="switchTab('kds')">2. Keukenscherm</button>
+            <button class="tab-btn" data-view="bar" onclick="switchTab('bar')">3. Bar & Desserts</button>
+            <button class="tab-btn admin-only" data-view="settings" hidden onclick="switchTab('settings')">4. Sheets & PDF</button>
+            <button class="tab-btn admin-only" hidden onclick="openUserManager()">Gebruikers beheren</button>
+            <button class="tab-btn admin-only" hidden onclick="openMenuEditor()">Menukaart beheren</button>
+        </div>
+        <div class="account-controls">
+            <span id="signed-in-user"></span>
+            <button id="sign-out-button" class="btn btn-warning" type="button" hidden onclick="meldAf()">Afmelden</button>
+        </div>
+    </header>
+
+    <dialog id="access-dialog" aria-labelledby="access-title">
+        <h2 id="access-title">Resto STERKO</h2>
+        <p id="access-description" style="margin-top: 8px;"></p>
+        <p style="margin-top: 10px; color: #666; font-size: 12px;">Let op: gebruikersaccounts worden lokaal in deze browser opgeslagen. Omdat dit een losse HTML-app is, zijn rollen geen beveiliging tegen iemand met toegang tot de browser of het bestand. Voor echte beveiliging op meerdere apparaten is een server nodig.</p>
+        <form id="first-admin-form" class="access-form" hidden>
+            <label for="first-admin-id">Admin-ID</label>
+            <input id="first-admin-id" type="text" required minlength="3" maxlength="40" autocomplete="username" placeholder="bijv. admin">
+            <label for="first-admin-name">Naam</label>
+            <input id="first-admin-name" type="text" required maxlength="80" autocomplete="name">
+            <label for="first-admin-password">Wachtwoord (minstens 8 tekens)</label>
+            <input id="first-admin-password" type="password" required minlength="8" autocomplete="new-password">
+            <label for="first-admin-password-confirm">Bevestig wachtwoord</label>
+            <input id="first-admin-password-confirm" type="password" required minlength="8" autocomplete="new-password">
+            <button class="btn btn-success" type="submit" style="margin-top: 8px;">Admin-account aanmaken</button>
+        </form>
+        <form id="sign-in-form" class="access-form" hidden>
+            <label for="sign-in-name">Naam</label>
+            <input id="sign-in-name" type="text" required autocomplete="username">
+            <label for="sign-in-password">Wachtwoord</label>
+            <input id="sign-in-password" type="password" required autocomplete="current-password">
+            <button class="btn btn-success" type="submit" style="margin-top: 8px;">Aanmelden</button>
+            <button class="btn" type="button" onclick="toonWachtwoordHerstel()">Admin-wachtwoord vergeten?</button>
+        </form>
+        <form id="admin-recovery-form" class="access-form" hidden>
+            <label for="recovery-admin-id">Admin-ID</label>
+            <input id="recovery-admin-id" type="text" required autocomplete="username">
+            <label for="recovery-code">Herstelcode</label>
+            <input id="recovery-code" type="text" required autocomplete="off" spellcheck="false">
+            <label for="recovery-new-password">Nieuw wachtwoord (minstens 8 tekens)</label>
+            <input id="recovery-new-password" type="password" required minlength="8" autocomplete="new-password">
+            <label for="recovery-confirm-password">Bevestig nieuw wachtwoord</label>
+            <input id="recovery-confirm-password" type="password" required minlength="8" autocomplete="new-password">
+            <button class="btn btn-success" type="submit" style="margin-top: 8px;">Admin-wachtwoord herstellen</button>
+            <button class="btn btn-warning" type="button" onclick="toonAanmeldScherm()">Terug naar aanmelden</button>
+        </form>
+        <div id="recovery-code-panel" hidden style="margin-top: 16px;">
+            <p style="margin-bottom: 10px;">Bewaar deze herstelcode op een veilige plek. Ze wordt niet opnieuw getoond. Na herstel vervangt deze code de vorige.</p>
+            <code id="recovery-code-display" style="display: block; padding: 12px; background: #f4f6f8; border-radius: 4px; font-size: 18px; font-weight: bold; text-align: center; word-break: break-word;"></code>
+            <button class="btn btn-success" type="button" style="margin-top: 12px;" onclick="bevestigHerstelcodeOpgeslagen()">Ik heb de herstelcode veilig opgeslagen</button>
+        </div>
+        <p id="access-message" class="access-message" role="alert" aria-live="polite"></p>
+    </dialog>
+
+    <dialog id="menu-editor" aria-labelledby="menu-editor-title">
+        <div class="menu-editor-header">
+            <h3 id="menu-editor-title">Menukaart beheren</h3>
+            <button class="btn btn-danger" type="button" aria-label="Sluiten" onclick="document.getElementById('menu-editor').close()">✕</button>
+        </div>
+        <div class="menu-editor-content">
+            <table class="menu-editor-table">
+                <thead>
+                    <tr><th>Naam</th><th>Prijs (€)</th><th>Bestemming</th><th></th></tr>
+                </thead>
+                <tbody id="menu-editor-rows"></tbody>
+            </table>
+            <button class="btn" type="button" style="margin-top: 12px;" onclick="voegMenuItemToe()">+ Menu-item</button>
+        </div>
+        <div class="menu-editor-footer">
+            <button class="btn btn-warning" type="button" onclick="document.getElementById('menu-editor').close()">Annuleren</button>
+            <button class="btn btn-success" type="button" onclick="slaMenuOp()">Menukaart opslaan</button>
+        </div>
+    </dialog>
+
+    <dialog id="user-manager" aria-labelledby="user-manager-title">
+        <div class="menu-editor-header" style="padding: 0 0 12px;">
+            <h3 id="user-manager-title">Gebruikers beheren</h3>
+            <button class="btn btn-danger" type="button" aria-label="Sluiten" onclick="document.getElementById('user-manager').close()">✕</button>
+        </div>
+        <div class="user-manager-content">
+            <table class="user-manager-table">
+                <thead>
+                    <tr><th>ID</th><th>Naam</th><th>Rol</th><th>Nieuw wachtwoord</th><th></th></tr>
+                </thead>
+                <tbody id="user-manager-rows"></tbody>
+            </table>
+            <button class="btn btn-success" type="button" style="margin-top: 10px;" onclick="slaGebruikersOp()">Wijzigingen opslaan</button>
+            <hr style="margin: 18px 0;">
+            <h4>Gebruiker toevoegen</h4>
+            <form id="new-user-form" class="user-create-form">
+                <label for="new-user-id">Gebruikers-ID
+                    <input id="new-user-id" type="text" required minlength="3" maxlength="40" autocomplete="off">
+                </label>
+                <label for="new-user-name">Naam
+                    <input id="new-user-name" type="text" required maxlength="80" autocomplete="off">
+                </label>
+                <label for="new-user-role">Rol
+                    <select id="new-user-role"><option value="user">User</option><option value="admin">Admin</option></select>
+                </label>
+                <label for="new-user-password">Wachtwoord
+                    <input id="new-user-password" type="password" required minlength="8" autocomplete="new-password">
+                </label>
+                <button class="btn" type="submit">Gebruiker toevoegen</button>
+            </form>
+            <p id="user-manager-message" class="access-message" role="alert" aria-live="polite"></p>
+        </div>
+    </dialog>
+
+    <!-- TAB 1: KASSA & PLATTEGROND -->
+    <div id="tab-pos" class="view-container active">
+        <div class="grid-2col">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3>Plattegrond</h3>
+                    <div>
+                        <button class="btn" id="btn-mode" onclick="toggleEditMode()">Modus: Bestellen</button>
+                        <button class="btn btn-warning" onclick="voegTafelToe()">+ Tafel</button>
+                    </div>
+                </div>
+                <p id="floorplan-mode-help" hidden style="font-size: 13px; color: #666; margin-bottom: 8px;">Selecteer een tafel om de kleur en vorm aan te passen; sleep deze om haar te verplaatsen.</p>
+                <div id="table-appearance-editor" class="table-appearance-editor" hidden>
+                    <strong id="table-appearance-title"></strong>
+                    <label for="table-color">Kleur</label>
+                    <input id="table-color" type="color" value="#2ecc71" aria-label="Tafelkleur">
+                    <label for="table-shape">Vorm</label>
+                    <select id="table-shape" aria-label="Tafelvorm">
+                        <option value="rechthoek">Rechthoek</option>
+                        <option value="vierkant">Vierkant</option>
+                        <option value="rond">Rond</option>
+                    </select>
+                    <button id="delete-table-button" class="btn btn-danger" type="button" onclick="verwijderTafel()">Tafel verwijderen</button>
+                </div>
+                <div class="canvas-wrapper" id="canvas-container">
+                    <canvas id="floorplanCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 id="selected-table-title">Selecteer een tafel</h3>
+                <hr style="margin: 10px 0;">
+                
+                <div id="order-interface" style="display: none; flex-direction: column; flex: 1;">
+                    <h4>Menukaart</h4>
+                    <div class="pos-menu-grid" id="pos-menu-grid"></div>
+
+                    <h4>Actieve Bestelling</h4>
+                    <div id="order-items-list" style="flex: 1; overflow-y: auto; margin: 10px 0; border: 1px solid #ddd; padding: 5px;">
+                        <p style="color: #888; font-size: 13px;">Nog geen items toegevoegd.</p>
+                    </div>
+
+                    <div style="border-top: 1px solid #ccc; padding-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px;">
+                            <span>Totaal:</span>
+                            <span id="order-total-price">€ 0.00</span>
+                        </div>
+                        <button class="btn btn-success" style="width: 100%; padding: 12px;" onclick="verstuurBestelling()">Bestelling Verzenden (Keuken + Bar)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: KEUKENSCHERM (KDS) -->
+    <div id="tab-kds" class="view-container">
+        <div class="card" style="height: 100%;">
+            <h3>Keukenscherm (Enkel Voor- & Hoofdgerechten)</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Hier verschijnen uitsluitend warme gerechten die door de keuken bereid moeten worden.</p>
+            <div id="kds-container" class="kds-grid">
+                <!-- Keukentickets -->
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: BAR & DESSERTS SCHERM -->
+    <div id="tab-bar" class="view-container">
+        <div class="card" style="height: 100%;">
+            <h3 style="color: var(--bar-color);">Bar & Dessertscherm (Dranken & Desserts)</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Hier verschijnen uitsluitend dranken en desserts die aan de bar of door de bediening klaargezet worden.</p>
+            <div id="bar-container" class="kds-grid">
+                <!-- Bar-tickets -->
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: SETTINGS, SHEETS & PDF EXPORT -->
+    <div id="tab-settings" class="view-container">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="card">
+                <h3>Google Sheets Export & Webhook</h3>
+                <p style="font-size: 13px; color: #666; margin: 5px 0 10px 0;">Plak hier de Web App URL van je Google Apps Script om bestellingen direct naar een sheet te verzenden.</p>
+                
+                <label style="font-size: 12px; font-weight: bold;">Google Web App URL:</label>
+                <input type="text" id="webhook-url" placeholder="https://script.google.com/macros/s/.../exec">
+                <button class="btn" onclick="opslaanWebhookUrl()">URL Opslaan</button>
+
+                <hr style="margin: 20px 0;">
+
+                <h3>Verkooprapporten</h3>
+                <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Genereer een PDF-overzicht van alle verkochte aantallen en omzet per item.</p>
+                <button class="btn btn-success" style="padding: 10px;" onclick="genereerProductenPdfRapport()">📄 Exporteer Dagtotalen naar PDF</button>
+                <button class="btn" style="padding: 10px; margin-top: 5px;" onclick="exporteerNaarCsv()">📊 Exporteer Ruwe Data naar .CSV</button>
+            </div>
+
+            <div class="card">
+                <h3>Thermische Bon Preview</h3>
+                <div class="receipt-preview" id="receipt-preview-box">
+                    <div class="receipt-header">
+                        <strong>Resto STERKO</strong><br>
+                        Tafel: <span id="rec-tafel">-</span><br>
+                        Datum: <span id="rec-datum">-</span>
+                    </div>
+                    <div id="rec-items">
+                        <p style="text-align: center; color: #888;">Geen bestelling geselecteerd</p>
+                    </div>
+                    <div style="border-top: 1px dashed #000; margin-top: 10px; padding-top: 5px; font-weight: bold;" class="receipt-row">
+                        <span>TOTAAL:</span>
+                        <span id="rec-totaal">€ 0.00</span>
+                    </div>
+                </div>
+                <button class="btn" style="margin-top: 15px;" onclick="window.print()">🖨️ Bon Afdrukken (window.print)</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h3>Lokaal Bestellingen Logboek</h3>
+            <table class="data-table" id="log-table">
+                <thead>
+                    <tr>
+                        <th>Tijd</th>
+                        <th>Tafel</th>
+                        <th>Aantal Items</th>
+                        <th>Details</th>
+                        <th>Totaalbedrag</th>
+                    </tr>
+                </thead>
+                <tbody id="log-table-body">
+                    <!-- Rijen -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBALE APPLICATIE STATE ---
+        let editMode = false;
+        let actieveTafel = null;
+        const standaardTafels = [
+            { id: 'T1', naam: 'Tafel 1', x: 50, y: 50, w: 80, h: 80, kleur: '#2ecc71', vorm: 'rechthoek', status: 'vrij' },
+            { id: 'T2', naam: 'Tafel 2', x: 180, y: 50, w: 80, h: 80, kleur: '#2ecc71', vorm: 'rechthoek', status: 'vrij' },
+            { id: 'T3', naam: 'Tafel 3', x: 50, y: 180, w: 100, h: 60, kleur: '#2ecc71', vorm: 'rechthoek', status: 'vrij' }
+        ];
+        let tafels = laadTafels();
+        let huidigeBestellingen = {}; 
+        let alleBestellingenLog = [];
+        const broadcast = typeof BroadcastChannel !== 'undefined'
+            ? new BroadcastChannel('horeca_pos_channel_v2')
+            : null;
+        const standaardMenuItems = [
+            { naam: 'Frisdrank', prijs: 2.50, bestemming: 'bar' },
+            { naam: 'Pintje', prijs: 2.80, bestemming: 'bar' },
+            { naam: 'Spaghetti', prijs: 14.00, bestemming: 'keuken' },
+            { naam: 'Steak Fries', prijs: 22.00, bestemming: 'keuken' },
+            { naam: 'Dame Blanche', prijs: 7.50, bestemming: 'bar' }
+        ];
+        let menuItems = laadMenuItems();
+        const GEBRUIKERS_OPSLAG_SLEUTEL = 'horeca_users';
+        const WACHTWOORD_ITERATIES = 310000;
+        let gebruikers = [];
+        let aangemeldeGebruiker = null;
+        let herstelcodeNaWeergave = null;
+        let actieNaHerstelcode = null;
+
+        function leesGebruikers() {
+            const opgeslagenGebruikers = localStorage.getItem(GEBRUIKERS_OPSLAG_SLEUTEL);
+            if (opgeslagenGebruikers === null) return [];
+
+            const parsedGebruikers = JSON.parse(opgeslagenGebruikers);
+            if (!Array.isArray(parsedGebruikers) || parsedGebruikers.some(gebruiker =>
+                !gebruiker || typeof gebruiker.id !== 'string' ||
+                !/^[a-z0-9._-]{3,40}$/.test(gebruiker.id) ||
+                typeof gebruiker.naam !== 'string' || !gebruiker.naam.trim() ||
+                !['user', 'admin'].includes(gebruiker.rol) ||
+                typeof gebruiker.salt !== 'string' || !/^[0-9a-f]{32}$/i.test(gebruiker.salt) ||
+                typeof gebruiker.wachtwoordHash !== 'string' || !/^[0-9a-f]{64}$/i.test(gebruiker.wachtwoordHash) ||
+                ((gebruiker.herstelZout === undefined) !== (gebruiker.herstelHash === undefined)) ||
+                (gebruiker.herstelZout !== undefined &&
+                    (typeof gebruiker.herstelZout !== 'string' || !/^[0-9a-f]{32}$/i.test(gebruiker.herstelZout) ||
+                        typeof gebruiker.herstelHash !== 'string' || !/^[0-9a-f]{64}$/i.test(gebruiker.herstelHash)))
+            ) || new Set(parsedGebruikers.map(gebruiker => gebruiker.id)).size !== parsedGebruikers.length ||
+                new Set(parsedGebruikers.map(gebruiker => normaliseerNaam(gebruiker.naam))).size !== parsedGebruikers.length ||
+                (parsedGebruikers.length > 0 && !parsedGebruikers.some(gebruiker => gebruiker.rol === 'admin'))) {
+                throw new Error('De opgeslagen gebruikerslijst heeft een ongeldig formaat.');
+            }
+            return parsedGebruikers;
+        }
+
+        function valideerGebruikersId(id) {
+            const genormaliseerdId = id.trim().toLocaleLowerCase();
+            if (!/^[a-z0-9._-]{3,40}$/.test(genormaliseerdId)) {
+                throw new Error('Een gebruikers-ID moet 3 tot 40 tekens bevatten (letters, cijfers, punt, _ of -).');
+            }
+            return genormaliseerdId;
+        }
+
+        function normaliseerNaam(naam) {
+            return naam.trim().toLocaleLowerCase();
+        }
+
+        function maakHex(bytes) {
+            return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function maakWachtwoordHash(wachtwoord, saltHex) {
+            if (!window.crypto || !window.crypto.subtle) {
+                throw new Error('Veilige wachtwoordverwerking is niet beschikbaar in deze browser.');
+            }
+            const salt = Uint8Array.from(saltHex.match(/.{2}/g) || [], byte => parseInt(byte, 16));
+            const sleutel = await window.crypto.subtle.importKey(
+                'raw',
+                new TextEncoder().encode(wachtwoord),
+                'PBKDF2',
+                false,
+                ['deriveBits']
+            );
+            const bits = await window.crypto.subtle.deriveBits({
+                name: 'PBKDF2',
+                hash: 'SHA-256',
+                salt,
+                iterations: WACHTWOORD_ITERATIES
+            }, sleutel, 256);
+            return maakHex(new Uint8Array(bits));
+        }
+
+        function maakZout() {
+            const bytes = new Uint8Array(16);
+            window.crypto.getRandomValues(bytes);
+            return maakHex(bytes);
+        }
+
+        function maakHerstelcode() {
+            const bytes = new Uint8Array(20);
+            window.crypto.getRandomValues(bytes);
+            const hex = maakHex(bytes).toUpperCase();
+            return hex.match(/.{1,4}/g).join('-');
+        }
+
+        function normaliseerHerstelcode(code) {
+            const normalized = code.replace(/-/g, '').trim().toUpperCase();
+            if (!/^[0-9A-F]{40}$/.test(normalized)) {
+                throw new Error('De herstelcode is ongeldig.');
+            }
+            return normalized;
+        }
+
+        function hashesZijnGelijk(een, twee) {
+            if (een.length !== twee.length) return false;
+            let verschil = 0;
+            for (let index = 0; index < een.length; index++) {
+                verschil |= een.charCodeAt(index) ^ twee.charCodeAt(index);
+            }
+            return verschil === 0;
+        }
+
+        function slaGebruikerslijstOp(nieuweGebruikers) {
+            localStorage.setItem(GEBRUIKERS_OPSLAG_SLEUTEL, JSON.stringify(nieuweGebruikers));
+            gebruikers = nieuweGebruikers;
+        }
+
+        function toonAanmeldScherm() {
+            const eersteAdmin = gebruikers.length === 0;
+            document.getElementById('access-title').textContent = eersteAdmin ? 'Eerste beheerder instellen' : 'Aanmelden';
+            document.getElementById('access-description').textContent = eersteAdmin
+                ? 'Maak het eerste Admin-account aan om Resto STERKO te beheren.'
+                : 'Meld je aan met je naam en wachtwoord.';
+            document.getElementById('first-admin-form').hidden = !eersteAdmin;
+            document.getElementById('sign-in-form').hidden = eersteAdmin;
+            document.getElementById('admin-recovery-form').hidden = true;
+            document.getElementById('recovery-code-panel').hidden = true;
+            document.getElementById('access-message').textContent = '';
+            if (!document.getElementById('access-dialog').open) {
+                document.getElementById('access-dialog').showModal();
+            }
+        }
+
+        function toonWachtwoordHerstel() {
+            if (gebruikers.length === 0) return;
+            document.getElementById('access-title').textContent = 'Admin-wachtwoord herstellen';
+            document.getElementById('access-description').textContent =
+                'Voer de Admin-ID en de herstelcode in die bij het aanmaken van het Admin-account is getoond.';
+            document.getElementById('sign-in-form').hidden = true;
+            document.getElementById('admin-recovery-form').hidden = false;
+            document.getElementById('recovery-code-panel').hidden = true;
+            document.getElementById('access-message').textContent = '';
+        }
+
+        function toonHerstelcode(code, actie) {
+            herstelcodeNaWeergave = code;
+            actieNaHerstelcode = actie;
+            document.getElementById('access-title').textContent = 'Bewaar je herstelcode';
+            document.getElementById('access-description').textContent =
+                'Deze code wordt alleen nu getoond. Bewaar ze veilig voordat je verdergaat.';
+            document.getElementById('first-admin-form').hidden = true;
+            document.getElementById('sign-in-form').hidden = true;
+            document.getElementById('admin-recovery-form').hidden = true;
+            document.getElementById('recovery-code-display').textContent = code;
+            document.getElementById('recovery-code-panel').hidden = false;
+            document.getElementById('access-message').textContent = '';
+        }
+
+        function bevestigHerstelcodeOpgeslagen() {
+            if (!herstelcodeNaWeergave || !actieNaHerstelcode) return;
+            const actie = actieNaHerstelcode;
+            herstelcodeNaWeergave = null;
+            actieNaHerstelcode = null;
+            document.getElementById('recovery-code-display').textContent = '';
+            if (actie.type === 'aanmelden') {
+                rondAanmeldenAf(actie.gebruiker);
+                return;
+            }
+            toonAanmeldScherm();
+            document.getElementById('sign-in-name').value = actie.gebruiker
+                ? actie.gebruiker.naam
+                : (gebruikers.find(gebruiker => gebruiker.id === actie.adminId) || {}).naam || '';
+            document.getElementById('sign-in-password').focus();
+            if (actie.type === 'eerste-admin') {
+                document.getElementById('access-message').textContent = 'Meld je nu aan met het nieuwe Admin-wachtwoord.';
+            } else {
+                document.getElementById('access-message').textContent =
+                    'Je nieuwe herstelcode is opgeslagen. Meld je nu aan met je nieuwe wachtwoord.';
+            }
+        }
+
+        function toonAanmeldFout(bericht) {
+            document.getElementById('access-message').textContent = bericht;
+        }
+
+        function rondAanmeldenAf(gebruiker) {
+            aangemeldeGebruiker = gebruiker;
+            document.getElementById('access-dialog').close();
+            document.getElementById('signed-in-user').textContent =
+                `${gebruiker.naam} (${gebruiker.rol === 'admin' ? 'Admin' : 'User'})`;
+            document.getElementById('sign-out-button').hidden = false;
+            document.querySelectorAll('.admin-only').forEach(element => {
+                element.hidden = gebruiker.rol !== 'admin';
+            });
+            switchTab('pos');
+        }
+
+        function meldAf() {
+            aangemeldeGebruiker = null;
+            document.getElementById('signed-in-user').textContent = '';
+            document.getElementById('sign-out-button').hidden = true;
+            document.getElementById('user-manager').close();
+            toonAanmeldScherm();
+        }
+
+        function openUserManager() {
+            if (!isAdmin()) return;
+            renderGebruikers();
+            document.getElementById('user-manager-message').textContent = '';
+            document.getElementById('user-manager').showModal();
+        }
+
+        function isAdmin() {
+            return aangemeldeGebruiker && aangemeldeGebruiker.rol === 'admin';
+        }
+
+        function renderGebruikers() {
+            const rows = document.getElementById('user-manager-rows');
+            rows.replaceChildren();
+            gebruikers.forEach(gebruiker => {
+                const row = document.createElement('tr');
+                const idCell = document.createElement('td');
+                idCell.textContent = gebruiker.id;
+                const nameCell = document.createElement('td');
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = gebruiker.naam;
+                nameInput.maxLength = 80;
+                nameInput.required = true;
+                nameInput.dataset.field = 'naam';
+                nameInput.setAttribute('aria-label', `Naam voor ${gebruiker.id}`);
+                nameCell.appendChild(nameInput);
+
+                const roleCell = document.createElement('td');
+                const roleSelect = document.createElement('select');
+                roleSelect.dataset.field = 'rol';
+                roleSelect.setAttribute('aria-label', `Rol voor ${gebruiker.id}`);
+                roleSelect.innerHTML = '<option value="user">User</option><option value="admin">Admin</option>';
+                roleSelect.value = gebruiker.rol;
+                roleCell.appendChild(roleSelect);
+
+                const passwordCell = document.createElement('td');
+                const passwordInput = document.createElement('input');
+                passwordInput.type = 'password';
+                passwordInput.minLength = 8;
+                passwordInput.autocomplete = 'new-password';
+                passwordInput.placeholder = 'Leeg laten';
+                passwordInput.dataset.field = 'wachtwoord';
+                passwordInput.setAttribute('aria-label', `Nieuw wachtwoord voor ${gebruiker.id}`);
+                passwordCell.appendChild(passwordInput);
+
+                const actionCell = document.createElement('td');
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'btn btn-danger';
+                deleteButton.textContent = 'Verwijderen';
+                deleteButton.addEventListener('click', () => verwijderGebruiker(gebruiker.id));
+                actionCell.appendChild(deleteButton);
+                row.dataset.userId = gebruiker.id;
+                row.append(idCell, nameCell, roleCell, passwordCell, actionCell);
+                rows.appendChild(row);
+            });
+        }
+
+        async function verwijderGebruiker(id) {
+            if (!isAdmin()) return;
+            const gebruiker = gebruikers.find(item => item.id === id);
+            if (!gebruiker || gebruiker.id === aangemeldeGebruiker.id) {
+                toonGebruikersFout('Je kunt je eigen account niet verwijderen.');
+                return;
+            }
+            if (gebruiker.rol === 'admin' && gebruikers.filter(item => item.rol === 'admin').length === 1) {
+                toonGebruikersFout('De laatste Admin kan niet worden verwijderd.');
+                return;
+            }
+            if (!window.confirm(`Gebruiker ${gebruiker.id} verwijderen?`)) return;
+            try {
+                slaGebruikerslijstOp(gebruikers.filter(item => item.id !== id));
+                renderGebruikers();
+                toonGebruikersFout('');
+            } catch (error) {
+                toonGebruikersFout(`Gebruiker kon niet worden verwijderd: ${error.message}`);
+            }
+        }
+
+        function toonGebruikersFout(bericht) {
+            document.getElementById('user-manager-message').textContent = bericht;
+        }
+
+        document.getElementById('first-admin-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                if (gebruikers.length !== 0) throw new Error('Er bestaat al een gebruikersaccount.');
+                const id = valideerGebruikersId(document.getElementById('first-admin-id').value);
+                const naam = document.getElementById('first-admin-name').value.trim();
+                const wachtwoord = document.getElementById('first-admin-password').value;
+                const bevestiging = document.getElementById('first-admin-password-confirm').value;
+                if (!naam) throw new Error('Vul een naam in.');
+                if (gebruikers.some(gebruiker => normaliseerNaam(gebruiker.naam) === normaliseerNaam(naam))) {
+                    throw new Error('Deze naam is al in gebruik. Kies een unieke naam.');
+                }
+                if (wachtwoord.length < 8) throw new Error('Het wachtwoord moet minstens 8 tekens bevatten.');
+                if (wachtwoord !== bevestiging) throw new Error('De wachtwoorden komen niet overeen.');
+                const zout = maakZout();
+                const herstelcode = maakHerstelcode();
+                const herstelZout = maakZout();
+                const gebruiker = {
+                    id,
+                    naam,
+                    rol: 'admin',
+                    salt: zout,
+                    wachtwoordHash: await maakWachtwoordHash(wachtwoord, zout),
+                    herstelZout,
+                    herstelHash: await maakWachtwoordHash(normaliseerHerstelcode(herstelcode), herstelZout)
+                };
+                slaGebruikerslijstOp([gebruiker]);
+                document.getElementById('first-admin-form').reset();
+                toonHerstelcode(herstelcode, { type: 'eerste-admin', gebruiker });
+            } catch (error) {
+                toonAanmeldFout(error.message || 'Het Admin-account kon niet worden aangemaakt.');
+            }
+        });
+
+        document.getElementById('sign-in-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const naam = normaliseerNaam(document.getElementById('sign-in-name').value);
+                let gebruiker = gebruikers.find(item => normaliseerNaam(item.naam) === naam);
+                const wachtwoord = document.getElementById('sign-in-password').value;
+                const zout = gebruiker ? gebruiker.salt : '00'.repeat(16);
+                const opgegevenHash = await maakWachtwoordHash(wachtwoord, zout);
+                if (!gebruiker || !hashesZijnGelijk(gebruiker.wachtwoordHash, opgegevenHash)) {
+                    throw new Error('Ongeldige naam of wachtwoord.');
+                }
+                document.getElementById('sign-in-password').value = '';
+                if (gebruiker.rol === 'admin' && !gebruiker.herstelHash) {
+                    const herstelcode = maakHerstelcode();
+                    const herstelZout = maakZout();
+                    const bijgewerkt = {
+                        ...gebruiker,
+                        herstelZout,
+                        herstelHash: await maakWachtwoordHash(normaliseerHerstelcode(herstelcode), herstelZout)
+                    };
+                    slaGebruikerslijstOp(gebruikers.map(item => item.id === gebruiker.id ? bijgewerkt : item));
+                    gebruiker = bijgewerkt;
+                    toonHerstelcode(herstelcode, { type: 'aanmelden', gebruiker });
+                    return;
+                }
+                rondAanmeldenAf(gebruiker);
+            } catch (error) {
+                toonAanmeldFout(error.message || 'Aanmelden is mislukt.');
+            }
+        });
+
+        document.getElementById('admin-recovery-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const id = valideerGebruikersId(document.getElementById('recovery-admin-id').value);
+                const admin = gebruikers.find(gebruiker => gebruiker.id === id && gebruiker.rol === 'admin');
+                if (!admin || !admin.herstelZout || !admin.herstelHash) {
+                    throw new Error('Er is geen herstelcode ingesteld voor deze Admin. Meld je aan met het huidige wachtwoord om er een aan te maken.');
+                }
+                const herstelcode = normaliseerHerstelcode(document.getElementById('recovery-code').value);
+                const opgegevenHash = await maakWachtwoordHash(herstelcode, admin.herstelZout);
+                if (!hashesZijnGelijk(admin.herstelHash, opgegevenHash)) {
+                    throw new Error('Ongeldige Admin-ID of herstelcode.');
+                }
+
+                const nieuwWachtwoord = document.getElementById('recovery-new-password').value;
+                const bevestiging = document.getElementById('recovery-confirm-password').value;
+                if (nieuwWachtwoord.length < 8) throw new Error('Het wachtwoord moet minstens 8 tekens bevatten.');
+                if (nieuwWachtwoord !== bevestiging) throw new Error('De nieuwe wachtwoorden komen niet overeen.');
+
+                const nieuwHerstelcode = maakHerstelcode();
+                const wachtwoordZout = maakZout();
+                const herstelZout = maakZout();
+                const bijgewerkteAdmin = {
+                    ...admin,
+                    salt: wachtwoordZout,
+                    wachtwoordHash: await maakWachtwoordHash(nieuwWachtwoord, wachtwoordZout),
+                    herstelZout,
+                    herstelHash: await maakWachtwoordHash(normaliseerHerstelcode(nieuwHerstelcode), herstelZout)
+                };
+                slaGebruikerslijstOp(gebruikers.map(gebruiker =>
+                    gebruiker.id === bijgewerkteAdmin.id ? bijgewerkteAdmin : gebruiker
+                ));
+                document.getElementById('admin-recovery-form').reset();
+                toonHerstelcode(nieuwHerstelcode, { type: 'wachtwoord-hersteld', adminId: id });
+            } catch (error) {
+                toonAanmeldFout(error.message || 'Het Admin-wachtwoord kon niet worden hersteld.');
+            }
+        });
+
+        document.getElementById('new-user-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                if (!isAdmin()) throw new Error('Alleen een Admin kan gebruikers toevoegen.');
+                const id = valideerGebruikersId(document.getElementById('new-user-id').value);
+                const naam = document.getElementById('new-user-name').value.trim();
+                const wachtwoord = document.getElementById('new-user-password').value;
+                const rol = document.getElementById('new-user-role').value;
+                if (gebruikers.some(item => item.id === id)) throw new Error('Dit gebruikers-ID bestaat al.');
+                if (!naam) throw new Error('Vul een naam in.');
+                if (gebruikers.some(item => normaliseerNaam(item.naam) === normaliseerNaam(naam))) {
+                    throw new Error('Deze naam is al in gebruik. Kies een unieke naam.');
+                }
+                if (!['user', 'admin'].includes(rol)) throw new Error('Kies een geldige rol.');
+                if (wachtwoord.length < 8) throw new Error('Het wachtwoord moet minstens 8 tekens bevatten.');
+                const zout = maakZout();
+                const gebruiker = { id, naam, rol, salt: zout, wachtwoordHash: await maakWachtwoordHash(wachtwoord, zout) };
+                slaGebruikerslijstOp([...gebruikers, gebruiker]);
+                document.getElementById('new-user-form').reset();
+                renderGebruikers();
+                toonGebruikersFout('');
+            } catch (error) {
+                toonGebruikersFout(error.message || 'Gebruiker kon niet worden toegevoegd.');
+            }
+        });
+
+        async function slaGebruikersOp() {
+            if (!isAdmin()) return;
+            try {
+                const rows = [...document.querySelectorAll('#user-manager-rows tr')];
+                const nieuweGebruikers = [];
+                for (const row of rows) {
+                    const id = row.dataset.userId;
+                    const origineel = gebruikers.find(item => item.id === id);
+                    if (!origineel) throw new Error('De gebruikerslijst is gewijzigd. Sluit het venster en probeer opnieuw.');
+                    const naam = row.querySelector('[data-field="naam"]').value.trim();
+                    const rol = row.querySelector('[data-field="rol"]').value;
+                    const nieuwWachtwoord = row.querySelector('[data-field="wachtwoord"]').value;
+                    if (!naam) throw new Error(`Vul een naam in voor ${id}.`);
+                    if (nieuweGebruikers.some(gebruiker => normaliseerNaam(gebruiker.naam) === normaliseerNaam(naam))) {
+                        throw new Error(`De naam "${naam}" is al in gebruik. Namen moeten uniek zijn.`);
+                    }
+                    if (!['user', 'admin'].includes(rol)) throw new Error(`Ongeldige rol voor ${id}.`);
+                    if (id === aangemeldeGebruiker.id && rol !== origineel.rol) {
+                        throw new Error('Je kunt je eigen rol niet wijzigen.');
+                    }
+                    const bijgewerkt = { ...origineel, naam, rol };
+                    if (nieuwWachtwoord) {
+                        if (nieuwWachtwoord.length < 8) throw new Error(`Het nieuwe wachtwoord voor ${id} moet minstens 8 tekens bevatten.`);
+                        bijgewerkt.salt = maakZout();
+                        bijgewerkt.wachtwoordHash = await maakWachtwoordHash(nieuwWachtwoord, bijgewerkt.salt);
+                    }
+                    nieuweGebruikers.push(bijgewerkt);
+                }
+
+                if (!nieuweGebruikers.some(gebruiker => gebruiker.rol === 'admin')) {
+                    throw new Error('Er moet minstens één Admin-account blijven bestaan.');
+                }
+                slaGebruikerslijstOp(nieuweGebruikers);
+                aangemeldeGebruiker = nieuweGebruikers.find(gebruiker => gebruiker.id === aangemeldeGebruiker.id);
+                document.getElementById('signed-in-user').textContent =
+                    `${aangemeldeGebruiker.naam} (Admin)`;
+                renderGebruikers();
+                toonGebruikersFout('Wijzigingen opgeslagen.');
+            } catch (error) {
+                toonGebruikersFout(error.message || 'Wijzigingen konden niet worden opgeslagen.');
+            }
+        }
+
+        document.getElementById('access-dialog').addEventListener('cancel', (event) => event.preventDefault());
+        document.getElementById('user-manager').addEventListener('cancel', (event) => event.preventDefault());
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'horeca_tafels') {
+                const actieveTafelId = actieveTafel && actieveTafel.id;
+                const nieuweTafels = laadTafels();
+                tafels.splice(0, tafels.length, ...nieuweTafels);
+                actieveTafel = tafels.find(tafel => tafel.id === actieveTafelId) || null;
+                tekenPlattegrond();
+                return;
+            }
+            if (event.key !== GEBRUIKERS_OPSLAG_SLEUTEL) return;
+            try {
+                gebruikers = leesGebruikers();
+                const opgeslagenSessie = gebruikers.find(gebruiker => aangemeldeGebruiker && gebruiker.id === aangemeldeGebruiker.id);
+                if (aangemeldeGebruiker && (!opgeslagenSessie ||
+                    opgeslagenSessie.rol !== aangemeldeGebruiker.rol ||
+                    opgeslagenSessie.wachtwoordHash !== aangemeldeGebruiker.wachtwoordHash)) {
+                    meldAf();
+                } else if (opgeslagenSessie) {
+                    aangemeldeGebruiker = opgeslagenSessie;
+                    document.getElementById('signed-in-user').textContent =
+                        `${opgeslagenSessie.naam} (${opgeslagenSessie.rol === 'admin' ? 'Admin' : 'User'})`;
+                }
+            } catch (error) {
+                console.error('Gebruikerswijziging kon niet worden verwerkt:', error);
+                if (aangemeldeGebruiker) {
+                    meldAf();
+                } else {
+                    toonAanmeldFout('Gebruikerswijziging kon niet worden verwerkt. Herlaad de pagina.');
+                }
+            }
+        });
+
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById('floorplanCanvas');
+        const canvasContainer = document.getElementById('canvas-container');
+        const ctx = canvas.getContext('2d');
+        let isDragging = false;
+        let draggedTafel = null;
+        let dragOffsetX = 0, dragOffsetY = 0;
+
+        function resizeCanvas() {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            tekenPlattegrond();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function tekenTekstPassend(tekst, x, y, maxWidth) {
+            let label = String(tekst);
+            while (label.length > 1 && ctx.measureText(label).width > maxWidth) {
+                label = label.slice(0, -1);
+            }
+            if (label !== String(tekst)) {
+                while (label.length > 1 && ctx.measureText(`${label}…`).width > maxWidth) {
+                    label = label.slice(0, -1);
+                }
+                label += '…';
+            }
+            ctx.fillText(label, x, y, maxWidth);
+        }
+
+        function tekenPlattegrond() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            tafels.forEach(tafel => {
+                const isBezet = tafel.status === 'bezet';
+                const vorm = tafel.vorm || 'rechthoek';
+                const x = vorm === 'vierkant' ? tafel.x + (tafel.w - Math.min(tafel.w, tafel.h)) / 2 : tafel.x;
+                const y = vorm === 'vierkant' ? tafel.y + (tafel.h - Math.min(tafel.w, tafel.h)) / 2 : tafel.y;
+                const w = vorm === 'vierkant' ? Math.min(tafel.w, tafel.h) : tafel.w;
+                const h = vorm === 'vierkant' ? Math.min(tafel.w, tafel.h) : tafel.h;
+                if (isBezet) {
+                    ctx.fillStyle = '#e74c3c';
+                } else if (actieveTafel && actieveTafel.id === tafel.id && !editMode) {
+                    ctx.fillStyle = '#3498db';
+                } else {
+                    ctx.fillStyle = tafel.kleur || '#2ecc71';
+                }
+
+                if (vorm === 'rond') {
+                    ctx.beginPath();
+                    ctx.ellipse(tafel.x + tafel.w / 2, tafel.y + tafel.h / 2, tafel.w / 2, tafel.h / 2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(x, y, w, h);
+                }
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = actieveTafel && actieveTafel.id === tafel.id && editMode ? 4 : 2;
+                if (vorm === 'rond') {
+                    ctx.stroke();
+                } else {
+                    ctx.strokeRect(x, y, w, h);
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                if (isBezet && tafel.besteller) {
+                    ctx.font = 'bold 12px Arial';
+                    tekenTekstPassend(tafel.naam, tafel.x + tafel.w / 2, tafel.y + tafel.h / 2 - 4, Math.max(0, tafel.w - 8));
+                    ctx.font = '10px Arial';
+                    tekenTekstPassend(tafel.besteller, tafel.x + tafel.w / 2, tafel.y + tafel.h / 2 + 12, Math.max(0, tafel.w - 8));
+                } else {
+                    ctx.font = 'bold 14px Arial';
+                    tekenTekstPassend(tafel.naam, tafel.x + tafel.w / 2, tafel.y + tafel.h / 2 + 5, Math.max(0, tafel.w - 8));
+                }
+            });
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const pointerX = (e.clientX - rect.left) * scaleX;
+            const pointerY = (e.clientY - rect.top) * scaleY;
+            const clickedTable = [...tafels].reverse().find(tafel =>
+                isPuntOpTafel(tafel, pointerX, pointerY)
+            );
+
+            if (clickedTable && editMode) {
+                e.preventDefault();
+                actieveTafel = clickedTable;
+                toonTafelUiterlijk(clickedTable);
+                draggedTafel = clickedTable;
+                dragOffsetX = pointerX - clickedTable.x;
+                dragOffsetY = pointerY - clickedTable.y;
+                isDragging = true;
+                canvas.classList.add('is-dragging');
+                canvas.setPointerCapture(e.pointerId);
+            } else if (clickedTable) {
+                actieveTafel = clickedTable;
+                openBestelInterface(clickedTable);
+            } else if (!editMode) {
+                actieveTafel = null;
+                document.getElementById('order-interface').style.display = 'none';
+                document.getElementById('selected-table-title').innerText = 'Selecteer een tafel';
+            }
+
+            tekenPlattegrond();
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (isDragging && draggedTafel) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const maxX = Math.max(0, canvas.width - draggedTafel.w);
+                const maxY = Math.max(0, canvas.height - draggedTafel.h);
+                draggedTafel.x = Math.min(maxX, Math.max(0, (e.clientX - rect.left) * scaleX - dragOffsetX));
+                draggedTafel.y = Math.min(maxY, Math.max(0, (e.clientY - rect.top) * scaleY - dragOffsetY));
+                tekenPlattegrond();
+            }
+        });
+
+        function stopDragging() {
+            if (!isDragging) return;
+            isDragging = false;
+            draggedTafel = null;
+            canvas.classList.remove('is-dragging');
+            slaTafelsOp();
+        }
+
+        canvas.addEventListener('pointerup', stopDragging);
+        canvas.addEventListener('pointercancel', stopDragging);
+        canvas.addEventListener('lostpointercapture', stopDragging);
+
+        function toggleEditMode() {
+            editMode = !editMode;
+            document.getElementById('btn-mode').innerText = editMode ? 'Modus: Bewerken' : 'Modus: Bestellen';
+            document.getElementById('btn-mode').style.background = editMode ? 'var(--warning)' : 'var(--accent)';
+            canvasContainer.classList.toggle('edit-mode', editMode);
+            document.getElementById('floorplan-mode-help').hidden = !editMode;
+            document.getElementById('table-appearance-editor').hidden = !editMode || !actieveTafel;
+            if (!editMode) stopDragging();
+        }
+
+        function isPuntOpTafel(tafel, x, y) {
+            const vorm = tafel.vorm || 'rechthoek';
+            if (vorm === 'rond') {
+                const dx = (x - (tafel.x + tafel.w / 2)) / (tafel.w / 2);
+                const dy = (y - (tafel.y + tafel.h / 2)) / (tafel.h / 2);
+                return dx * dx + dy * dy <= 1;
+            }
+
+            const size = Math.min(tafel.w, tafel.h);
+            const left = vorm === 'vierkant' ? tafel.x + (tafel.w - size) / 2 : tafel.x;
+            const top = vorm === 'vierkant' ? tafel.y + (tafel.h - size) / 2 : tafel.y;
+            const width = vorm === 'vierkant' ? size : tafel.w;
+            const height = vorm === 'vierkant' ? size : tafel.h;
+            return x >= left && x <= left + width && y >= top && y <= top + height;
+        }
+
+        function toonTafelUiterlijk(tafel) {
+            document.getElementById('table-appearance-title').textContent = tafel.naam;
+            document.getElementById('table-color').value = tafel.kleur || '#2ecc71';
+            document.getElementById('table-shape').value = tafel.vorm || 'rechthoek';
+            const heeftOpenBestelling = (tafel.openTickets || []).length > 0 ||
+                (huidigeBestellingen[tafel.id] || []).length > 0;
+            document.getElementById('delete-table-button').disabled = heeftOpenBestelling || tafels.length <= 1;
+            document.getElementById('delete-table-button').title = heeftOpenBestelling
+                ? 'Rond eerst de open bestelling af voordat je de tafel verwijdert.'
+                : tafels.length <= 1 ? 'Er moet minstens één tafel blijven bestaan.' : '';
+            document.getElementById('table-appearance-editor').hidden = false;
+        }
+
+        document.getElementById('table-color').addEventListener('input', (event) => {
+            if (!editMode || !actieveTafel) return;
+            actieveTafel.kleur = event.target.value;
+            slaTafelsOp();
+            tekenPlattegrond();
+        });
+
+        document.getElementById('table-shape').addEventListener('change', (event) => {
+            if (!editMode || !actieveTafel) return;
+            const afmetingen = {
+                rechthoek: { w: 110, h: 60 },
+                vierkant: { w: 80, h: 80 },
+                rond: { w: 80, h: 80 }
+            };
+            const gekozenVorm = event.target.value;
+            if (!afmetingen[gekozenVorm]) return;
+            const nieuweAfmetingen = afmetingen[gekozenVorm];
+            const middenX = actieveTafel.x + actieveTafel.w / 2;
+            const middenY = actieveTafel.y + actieveTafel.h / 2;
+            actieveTafel.w = nieuweAfmetingen.w;
+            actieveTafel.h = nieuweAfmetingen.h;
+            actieveTafel.x = Math.min(
+                Math.max(0, canvas.width - actieveTafel.w),
+                Math.max(0, middenX - actieveTafel.w / 2)
+            );
+            actieveTafel.y = Math.min(
+                Math.max(0, canvas.height - actieveTafel.h),
+                Math.max(0, middenY - actieveTafel.h / 2)
+            );
+            actieveTafel.vorm = gekozenVorm;
+            slaTafelsOp();
+            tekenPlattegrond();
+        });
+
+        function verwijderTafel() {
+            if (!editMode || !actieveTafel) return;
+            const tafel = actieveTafel;
+            const heeftOpenBestelling = (tafel.openTickets || []).length > 0 ||
+                (huidigeBestellingen[tafel.id] || []).length > 0;
+            if (heeftOpenBestelling) {
+                alert('Rond eerst alle open bestellingen voor deze tafel af voordat je haar verwijdert.');
+                return;
+            }
+            if (tafels.length <= 1) {
+                alert('Er moet minstens één tafel op de plattegrond blijven bestaan.');
+                return;
+            }
+            if (!window.confirm(`${tafel.naam} verwijderen? Eerdere bestellingen blijven in het logboek staan.`)) return;
+
+            tafels = tafels.filter(item => item.id !== tafel.id);
+            delete huidigeBestellingen[tafel.id];
+            actieveTafel = null;
+            document.getElementById('table-appearance-editor').hidden = true;
+            document.getElementById('order-interface').style.display = 'none';
+            document.getElementById('selected-table-title').innerText = 'Selecteer een tafel';
+            slaTafelsOp();
+            tekenPlattegrond();
+        }
+
+        function voegTafelToe() {
+            const id = 'T' + (tafels.length + 1);
+            const tafel = { id: id, naam: 'Tafel ' + (tafels.length + 1), x: 20, y: 20, w: 80, h: 80, kleur: '#2ecc71', vorm: 'rechthoek', status: 'vrij' };
+            tafels.push(tafel);
+            if (editMode) {
+                actieveTafel = tafel;
+                toonTafelUiterlijk(tafel);
+            }
+            slaTafelsOp();
+            tekenPlattegrond();
+        }
+
+        function laadTafels() {
+            try {
+                const opgeslagenTafels = JSON.parse(localStorage.getItem('horeca_tafels'));
+                if (Array.isArray(opgeslagenTafels) && opgeslagenTafels.every(tafel =>
+                    tafel && typeof tafel.id === 'string' && tafel.id &&
+                    typeof tafel.naam === 'string' && tafel.naam &&
+                    ['x', 'y', 'w', 'h'].every(coordinate => Number.isFinite(tafel[coordinate])) &&
+                    tafel.x >= 0 && tafel.y >= 0 && tafel.w > 0 && tafel.h > 0 &&
+                    (tafel.status === undefined || ['vrij', 'bezet'].includes(tafel.status)) &&
+                    (tafel.besteller === undefined || typeof tafel.besteller === 'string') &&
+                    (tafel.openTickets === undefined ||
+                        (Array.isArray(tafel.openTickets) && tafel.openTickets.every(ticketId => typeof ticketId === 'string')))
+                ) && new Set(opgeslagenTafels.map(tafel => tafel.id)).size === opgeslagenTafels.length) {
+                    return opgeslagenTafels.map(tafel => ({
+                        ...tafel,
+                        kleur: /^#[0-9a-f]{6}$/i.test(tafel.kleur) ? tafel.kleur : '#2ecc71',
+                        vorm: ['rechthoek', 'vierkant', 'rond'].includes(tafel.vorm) ? tafel.vorm : 'rechthoek',
+                        openTickets: Array.isArray(tafel.openTickets) ? [...new Set(tafel.openTickets)] : [],
+                        status: Array.isArray(tafel.openTickets) && tafel.openTickets.length > 0 ? 'bezet' : 'vrij',
+                        besteller: typeof tafel.besteller === 'string' ? tafel.besteller : ''
+                    }));
+                }
+            } catch (error) {
+                console.warn('Opgeslagen tafelindeling kon niet worden geladen:', error);
+            }
+            return standaardTafels.map(tafel => ({ ...tafel }));
+        }
+
+        function slaTafelsOp() {
+            try {
+                const indeling = tafels.map(({ id, naam, x, y, w, h, kleur, vorm, status, besteller, openTickets }) => ({
+                    id, naam, x, y, w, h, kleur, vorm, status, besteller, openTickets
+                }));
+                localStorage.setItem('horeca_tafels', JSON.stringify(indeling));
+            } catch (error) {
+                console.error('Tafelindeling kon niet worden opgeslagen:', error);
+                alert('De tafelindeling kon niet worden opgeslagen.');
+            }
+        }
+
+        function laadMenuItems() {
+            try {
+                const opgeslagenMenu = JSON.parse(localStorage.getItem('horeca_menu_items'));
+                if (Array.isArray(opgeslagenMenu)) {
+                    return opgeslagenMenu.filter(item =>
+                        item && typeof item.naam === 'string' && item.naam.trim() &&
+                        Number.isFinite(Number(item.prijs)) && Number(item.prijs) >= 0 &&
+                        ['bar', 'keuken'].includes(item.bestemming)
+                    ).map(item => ({ naam: item.naam.trim(), prijs: Number(item.prijs), bestemming: item.bestemming }));
+                }
+            } catch (error) {
+                console.warn('Opgeslagen menukaart kon niet worden geladen:', error);
+            }
+            return standaardMenuItems.map(item => ({ ...item }));
+        }
+
+        function renderMenuItems() {
+            const container = document.getElementById('pos-menu-grid');
+            container.replaceChildren();
+
+            menuItems.forEach(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `menu-item-btn ${item.bestemming === 'bar' ? 'bar-item' : 'kitchen-item'}`;
+                button.innerHTML = '';
+                const name = document.createElement('span');
+                name.textContent = item.naam;
+                const price = document.createElement('span');
+                price.textContent = `€${item.prijs.toFixed(2).replace('.', ',')}`;
+                button.append(name, document.createElement('br'), price);
+                button.addEventListener('click', () => voegItemToe(item.naam, item.prijs, item.bestemming));
+                container.appendChild(button);
+            });
+        }
+
+        function openMenuEditor() {
+            if (!isAdmin()) return;
+            renderMenuEditor();
+            document.getElementById('menu-editor').showModal();
+        }
+
+        function renderMenuEditor() {
+            const rows = document.getElementById('menu-editor-rows');
+            rows.replaceChildren();
+
+            menuItems.forEach(item => voegMenuEditorRijToe(item.naam, item.prijs, item.bestemming));
+        }
+
+        function voegMenuEditorRijToe(naam = '', prijs = 0, bestemming = 'keuken') {
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.dataset.field = 'naam';
+            nameInput.value = naam;
+            nameInput.placeholder = 'Productnaam';
+            nameInput.setAttribute('aria-label', 'Productnaam');
+            nameCell.appendChild(nameInput);
+
+            const priceCell = document.createElement('td');
+            const priceInput = document.createElement('input');
+            priceInput.type = 'number';
+            priceInput.dataset.field = 'prijs';
+            priceInput.min = '0';
+            priceInput.step = '0.01';
+            priceInput.value = Number(prijs).toFixed(2);
+            priceInput.setAttribute('aria-label', 'Prijs in euro');
+            priceCell.appendChild(priceInput);
+
+            const destinationCell = document.createElement('td');
+            const destinationSelect = document.createElement('select');
+            destinationSelect.dataset.field = 'bestemming';
+            destinationSelect.setAttribute('aria-label', 'Bestemming');
+            destinationSelect.innerHTML = '<option value="keuken">Keuken</option><option value="bar">Bar</option>';
+            destinationSelect.value = bestemming;
+            destinationCell.appendChild(destinationSelect);
+
+            const actionCell = document.createElement('td');
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'btn btn-danger';
+            removeButton.textContent = 'Verwijderen';
+            removeButton.addEventListener('click', () => row.remove());
+            actionCell.appendChild(removeButton);
+
+            row.append(nameCell, priceCell, destinationCell, actionCell);
+            document.getElementById('menu-editor-rows').appendChild(row);
+        }
+
+        function voegMenuItemToe() {
+            if (!isAdmin()) return;
+            voegMenuEditorRijToe();
+            const inputs = document.querySelectorAll('#menu-editor-rows input[data-field="naam"]');
+            inputs[inputs.length - 1].focus();
+        }
+
+        function slaMenuOp() {
+            if (!isAdmin()) return;
+            const rows = [...document.querySelectorAll('#menu-editor-rows tr')];
+            const nieuweMenuItems = rows.map(row => ({
+                naam: row.querySelector('[data-field="naam"]').value.trim(),
+                prijs: Number(row.querySelector('[data-field="prijs"]').value),
+                bestemming: row.querySelector('[data-field="bestemming"]').value
+            }));
+
+            if (nieuweMenuItems.some(item => !item.naam || !Number.isFinite(item.prijs) || item.prijs < 0)) {
+                alert('Vul voor elk menu-item een naam en een geldige prijs van 0 of hoger in.');
+                return;
+            }
+
+            const namen = nieuweMenuItems.map(item => item.naam.toLocaleLowerCase());
+            if (new Set(namen).size !== namen.length) {
+                alert('Elke menukaartnaam moet uniek zijn.');
+                return;
+            }
+
+            menuItems = nieuweMenuItems;
+            localStorage.setItem('horeca_menu_items', JSON.stringify(menuItems));
+            renderMenuItems();
+            document.getElementById('menu-editor').close();
+        }
+
+        // --- BESTELSYSTEEM LOGICA ---
+        function openBestelInterface(tafel) {
+            document.getElementById('selected-table-title').innerText = 'Bestelling: ' + tafel.naam;
+            document.getElementById('order-interface').style.display = 'flex';
+            
+            if (!huidigeBestellingen[tafel.id]) {
+                huidigeBestellingen[tafel.id] = [];
+            }
+            updateBestelLijst();
+        }
+
+        function voegItemToe(naam, prijs, bestemming) {
+            if (!actieveTafel) return;
+            
+            const artikelen = huidigeBestellingen[actieveTafel.id];
+            const bestaandItem = artikelen.find(i => i.naam === naam);
+
+            if (bestaandItem) {
+                bestaandItem.aantal++;
+            } else {
+                artikelen.push({ naam: naam, prijs: prijs, aantal: 1, bestemming: bestemming });
+            }
+
+            updateBestelLijst();
+        }
+
+        function updateBestelLijst() {
+            if (!actieveTafel) return;
+            const container = document.getElementById('order-items-list');
+            const artikelen = huidigeBestellingen[actieveTafel.id];
+            
+            if (artikelen.length === 0) {
+                container.innerHTML = '<p style="color: #888; font-size: 13px;">Nog geen items toegevoegd.</p>';
+                document.getElementById('order-total-price').innerText = '€ 0.00';
+                return;
+            }
+
+            let html = '';
+            let totaal = 0;
+
+            artikelen.forEach((item, index) => {
+                const subtotaal = item.prijs * item.aantal;
+                totaal += subtotaal;
+                let badgeColor = item.bestemming === 'bar' ? 'var(--bar-color)' : 'var(--warning)';
+                html += `
+                    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 5px;">
+                        <span style="flex:1; font-size: 13px;">
+                            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${badgeColor}; margin-right:4px;"></span>
+                            ${item.aantal}x ${item.naam}
+                        </span>
+                        <span style="font-weight:bold; font-size: 13px; margin-right: 10px;">€ ${subtotaal.toFixed(2)}</span>
+                        <button onclick="verwijderItem(${index})" style="background:none; border:none; color:red; cursor:pointer;">✕</button>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('order-total-price').innerText = '€ ' + totaal.toFixed(2);
+        }
+
+        function verwijderItem(index) {
+            if (!actieveTafel) return;
+            huidigeBestellingen[actieveTafel.id].splice(index, 1);
+            updateBestelLijst();
+        }
+
+        function maakTicketId() {
+            const bytes = new Uint8Array(8);
+            window.crypto.getRandomValues(bytes);
+            return maakHex(bytes);
+        }
+
+        function verstuurBestelling() {
+            if (!actieveTafel) return;
+            const artikelen = huidigeBestellingen[actieveTafel.id];
+            if (artikelen.length === 0) return;
+
+            let totaal = artikelen.reduce((acc, i) => acc + (i.prijs * i.aantal), 0);
+            
+            // Opsplitsen in Keuken items en Bar items
+            const keukenArtikelen = artikelen.filter(i => i.bestemming === 'keuken');
+            const barArtikelen = artikelen.filter(i => i.bestemming === 'bar');
+
+            const timestamp = Date.now();
+            const bestellingId = `${timestamp}_${maakTicketId()}`;
+            const tijdStr = new Date().toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+            const datumStr = new Date().toLocaleString('nl-BE');
+            const openTickets = [];
+
+            // 1. Verzend naar Keuken indien er warme gerechten zijn
+            if (keukenArtikelen.length > 0) {
+                const keukenPayload = {
+                    id: `${bestellingId}_k`,
+                    tafelId: actieveTafel.id,
+                    tafel: actieveTafel.naam,
+                    besteller: aangemeldeGebruiker.naam,
+                    bestellingId,
+                    tijd: tijdStr,
+                    artikelen: keukenArtikelen
+                };
+                openTickets.push(keukenPayload.id);
+                if (broadcast) {
+                    broadcast.postMessage({ type: 'NIEUWE_KEUKEN_BESTELLING', data: keukenPayload });
+                }
+                voegKdsTicketToe(keukenPayload);
+            }
+
+            // 2. Verzend naar Bar indien er dranken/desserts zijn
+            if (barArtikelen.length > 0) {
+                const barPayload = {
+                    id: `${bestellingId}_b`,
+                    tafelId: actieveTafel.id,
+                    tafel: actieveTafel.naam,
+                    besteller: aangemeldeGebruiker.naam,
+                    bestellingId,
+                    tijd: tijdStr,
+                    artikelen: barArtikelen
+                };
+                openTickets.push(barPayload.id);
+                if (broadcast) {
+                    broadcast.postMessage({ type: 'NIEUWE_BAR_BESTELLING', data: barPayload });
+                }
+                voegBarTicketToe(barPayload);
+            }
+
+            actieveTafel.status = openTickets.length > 0 ? 'bezet' : 'vrij';
+            actieveTafel.besteller = openTickets.length > 0 ? aangemeldeGebruiker.naam : '';
+            actieveTafel.openTickets = [
+                ...new Set([...(actieveTafel.openTickets || []), ...openTickets])
+            ];
+            slaTafelsOp();
+            tekenPlattegrond();
+
+            const volledigeBestelling = {
+                id: bestellingId,
+                tafel: actieveTafel.naam,
+                besteller: aangemeldeGebruiker.naam,
+                tijd: tijdStr,
+                datum: datumStr,
+                artikelen: [...artikelen],
+                totaal: totaal
+            };
+
+            alleBestellingenLog.push(volledigeBestelling);
+            voegToeAanLogTabel(volledigeBestelling);
+            updateReceiptPreview(volledigeBestelling);
+            verstuurNaarGoogleSheets(volledigeBestelling);
+
+            huidigeBestellingen[actieveTafel.id] = [];
+            updateBestelLijst();
+            alert('Bestelling verzonden: Keuken en Bar zijn aangestuurd!');
+        }
+
+        // --- BROADCAST SYNC VOOR KEUKEN & BAR ---
+        if (broadcast) {
+            broadcast.onmessage = (event) => {
+                if (event.data.type === 'NIEUWE_KEUKEN_BESTELLING') {
+                    voegKdsTicketToe(event.data.data);
+                } else if (event.data.type === 'NIEUWE_BAR_BESTELLING') {
+                    voegBarTicketToe(event.data.data);
+                } else if (event.data.type === 'TICKET_GEREED') {
+                    verwerkTicketGereed(event.data.data);
+                }
+            };
+        }
+
+        function verwerkTicketGereed(data) {
+            if (!data || typeof data.tafelId !== 'string' || typeof data.id !== 'string') return;
+            const normalizedId = normaliseerTicketId(data.id);
+            const tafel = tafels.find(item => item.id === data.tafelId);
+            if (!tafel || !Array.isArray(tafel.openTickets) || !tafel.openTickets.some(ticketId => normaliseerTicketId(ticketId) === normalizedId)) return;
+
+            tafel.openTickets = tafel.openTickets.filter(ticketId => normaliseerTicketId(ticketId) !== normalizedId);
+            if (tafel.openTickets.length === 0) {
+                tafel.status = 'vrij';
+                tafel.besteller = '';
+            }
+            slaTafelsOp();
+            tekenPlattegrond();
+        }
+
+        function normaliseerTicketId(id) {
+            if (typeof id !== 'string') return '';
+            return id.replace(/^kds-ticket-/, '').replace(/^bar-ticket-/, '');
+        }
+
+        function markeerTicketGereed(type, data) {
+            if (!['keuken', 'bar'].includes(type) || !data) return;
+            const prefix = type === 'keuken' ? 'kds-ticket-' : 'bar-ticket-';
+            const ticketId = normaliseerTicketId(data.id);
+            const ticket = document.getElementById(`${prefix}${ticketId}`) || (ticketId ? document.getElementById(data.id) : null);
+            if (!ticket) return;
+            ticket.remove();
+            if (data.tafelId && ticketId) {
+                const klaarEvent = { id: ticketId, tafelId: data.tafelId };
+                verwerkTicketGereed(klaarEvent);
+                if (broadcast) {
+                    broadcast.postMessage({ type: 'TICKET_GEREED', data: klaarEvent });
+                }
+            }
+        }
+
+        function voegKdsTicketToe(data) {
+            const container = document.getElementById('kds-container');
+            const ticketEl = document.createElement('div');
+            ticketEl.className = 'ticket';
+            ticketEl.id = `kds-ticket-${data.id}`;
+
+            let itemsHtml = data.artikelen.map(i => `
+                <div class="ticket-item">
+                    <span><strong>${i.aantal}x</strong> ${i.naam}</span>
+                </div>
+            `).join('');
+
+            ticketEl.innerHTML = `
+                <div class="ticket-header">
+                    <span>${data.tafel}</span>
+                    <span>${data.tijd}</span>
+                </div>
+                <div>${itemsHtml}</div>
+            `;
+            if (data.besteller) {
+                const orderer = document.createElement('div');
+                orderer.className = 'ticket-item';
+                const ordererName = document.createElement('strong');
+                ordererName.textContent = `Besteld door: ${data.besteller}`;
+                orderer.appendChild(ordererName);
+                ticketEl.insertBefore(orderer, ticketEl.children[1]);
+            }
+            const doneButton = document.createElement('button');
+            doneButton.className = 'btn btn-success';
+            doneButton.style.cssText = 'width:100%; margin-top:10px;';
+            doneButton.textContent = 'Gereed / Klaar';
+            doneButton.addEventListener('click', () => markeerTicketGereed('keuken', data));
+            ticketEl.appendChild(doneButton);
+            container.prepend(ticketEl);
+        }
+
+        function voegBarTicketToe(data) {
+            const container = document.getElementById('bar-container');
+            const ticketEl = document.createElement('div');
+            ticketEl.className = 'ticket bar-ticket';
+            ticketEl.id = `bar-ticket-${data.id}`;
+
+            let itemsHtml = data.artikelen.map(i => `
+                <div class="ticket-item">
+                    <span><strong>${i.aantal}x</strong> ${i.naam}</span>
+                </div>
+            `).join('');
+
+            ticketEl.innerHTML = `
+                <div class="ticket-header" style="border-color:#ce93d8;">
+                    <span>${data.tafel}</span>
+                    <span>${data.tijd}</span>
+                </div>
+                <div>${itemsHtml}</div>
+            `;
+            if (data.besteller) {
+                const orderer = document.createElement('div');
+                orderer.className = 'ticket-item';
+                const ordererName = document.createElement('strong');
+                ordererName.textContent = `Besteld door: ${data.besteller}`;
+                orderer.appendChild(ordererName);
+                ticketEl.insertBefore(orderer, ticketEl.children[1]);
+            }
+            const doneButton = document.createElement('button');
+            doneButton.className = 'btn btn-bar';
+            doneButton.style.cssText = 'width:100%; margin-top:10px;';
+            doneButton.textContent = 'Drank/Dessert Geserveerd';
+            doneButton.addEventListener('click', () => markeerTicketGereed('bar', data));
+            ticketEl.appendChild(doneButton);
+            container.prepend(ticketEl);
+        }
+
+        // --- GOOGLE SHEETS & EXPORT ---
+        function opslaanWebhookUrl() {
+            const url = document.getElementById('webhook-url').value;
+            localStorage.setItem('horeca_webhook_url', url);
+            alert('Webhook URL opgeslagen!');
+        }
+
+        function verstuurNaarGoogleSheets(data) {
+            const url = localStorage.getItem('horeca_webhook_url');
+            if (!url) return;
+
+            const itemsFormatted = data.artikelen.map(i => `${i.aantal}x ${i.naam}`).join(', ');
+
+            fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    datum: data.datum,
+                    tafel: data.tafel,
+                    items: itemsFormatted,
+                    totaal: data.totaal
+                })
+            }).catch(err => console.error('Fout bij Sheets-sync:', err));
+        }
+
+        function voegToeAanLogTabel(data) {
+            const tbody = document.getElementById('log-table-body');
+            const row = document.createElement('tr');
+            const itemsFormatted = data.artikelen.map(i => `${i.aantal}x ${i.naam}`).join(', ');
+            
+            row.innerHTML = `
+                <td>${data.tijd}</td>
+                <td>${data.tafel}</td>
+                <td>${data.artikelen.length}</td>
+                <td>${itemsFormatted}</td>
+                <td>€ ${data.totaal.toFixed(2)}</td>
+            `;
+            tbody.prepend(row);
+        }
+
+        function genereerProductenPdfRapport() {
+            if (alleBestellingenLog.length === 0) {
+                alert("Geen bestellingen om een rapport van te maken.");
+                return;
+            }
+
+            const productTotalen = {};
+            let totaleOmzet = 0;
+
+            alleBestellingenLog.forEach(bestelling => {
+                bestelling.artikelen.forEach(item => {
+                    if (!productTotalen[item.naam]) {
+                        productTotalen[item.naam] = { aantal: 0, totaalPrijs: 0 };
+                    }
+                    productTotalen[item.naam].aantal += item.aantal;
+                    productTotalen[item.naam].totaalPrijs += (item.prijs * item.aantal);
+                    totaleOmzet += (item.prijs * item.aantal);
+                });
+            });
+
+            let rapportHtml = `
+                <html>
+                <head>
+                    <title>Verkooprapport per Item</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+                        h1 { border-bottom: 2px solid #2c3e50; padding-bottom: 8px; color: #2c3e50; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                        th { background-color: #f4f4f4; }
+                        .text-right { text-align: right; }
+                        .totaal-rij { font-weight: bold; background-color: #e9e9e9; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Dagoverzicht: Totale Verkoop per Item</h1>
+                    <p><strong>Gegenereerd op:</strong> ${new Date().toLocaleString("nl-BE")}</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Productnaam</th>
+                                <th class="text-right">Aantal Verkocht</th>
+                                <th class="text-right">Totale Omzet (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            for (const [naam, data] of Object.entries(productTotalen)) {
+                rapportHtml += `
+                    <tr>
+                        <td>${naam}</td>
+                        <td class="text-right">${data.aantal} x</td>
+                        <td class="text-right">€ ${data.totaalPrijs.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+
+            rapportHtml += `
+                        </tbody>
+                        <tfoot>
+                            <tr class="totaal-rij">
+                                <td>TOTAAL ALGEMEEN</td>
+                                <td></td>
+                                <td class="text-right">€ ${totaleOmzet.toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </body>
+                </html>
+            `;
+
+            const printVenster = window.open('', '_blank');
+            printVenster.document.write(rapportHtml);
+            printVenster.document.close();
+            printVenster.focus();
+            setTimeout(() => { printVenster.print(); }, 500);
+        }
+
+        function exporteerNaarCsv() {
+            if (alleBestellingenLog.length === 0) return alert("Geen data beschikbaar.");
+            let csv = "\uFEFFDatum;Tafel;Details;Totaal\n";
+            alleBestellingenLog.forEach(b => {
+                const details = b.artikelen.map(i => `${i.aantal}x ${i.naam}`).join(" | ");
+                csv += `"${b.datum}";"${b.tafel}";"${details}";"${b.totaal.toFixed(2)}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `verkoop_export_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        function updateReceiptPreview(data) {
+            document.getElementById('rec-tafel').innerText = data.tafel;
+            document.getElementById('rec-datum').innerText = data.tijd;
+            
+            const container = document.getElementById('rec-items');
+            container.innerHTML = data.artikelen.map(i => `
+                <div class="receipt-row">
+                    <span>${i.aantal}x ${i.naam}</span>
+                    <span>€ ${(i.prijs * i.aantal).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('rec-totaal').innerText = '€ ' + data.totaal.toFixed(2);
+        }
+
+        function switchTab(tabName) {
+            if (!aangemeldeGebruiker) return;
+            if (tabName === 'settings' && !isAdmin()) {
+                alert('Alleen een Admin heeft toegang tot Sheets en PDF.');
+                return;
+            }
+            if (!['pos', 'kds', 'bar', 'settings'].includes(tabName)) return;
+
+            document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn[data-view]').forEach(el => {
+                el.classList.toggle('active', el.dataset.view === tabName);
+            });
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            if (tabName === 'pos') {
+                setTimeout(resizeCanvas, 50);
+            }
+        }
+
+        window.onload = () => {
+            const savedUrl = localStorage.getItem('horeca_webhook_url');
+            if (savedUrl) document.getElementById('webhook-url').value = savedUrl;
+            renderMenuItems();
+            resizeCanvas();
+            try {
+                gebruikers = leesGebruikers();
+                toonAanmeldScherm();
+            } catch (error) {
+                console.error('Gebruikers konden niet worden geladen:', error);
+                document.getElementById('access-title').textContent = 'Aanmelden niet beschikbaar';
+                document.getElementById('access-description').textContent = 'De lokale gebruikersgegevens konden niet veilig worden gelezen.';
+                document.getElementById('access-message').textContent = error.message;
+                document.getElementById('access-dialog').showModal();
+            }
+        };
+    </script>
+</body>
+</html>
